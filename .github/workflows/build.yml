@@ -1,0 +1,100 @@
+name: Build Aurora BRD
+
+on:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: 'Performance tier'
+        required: false
+        default: 'MEDIUM'
+        type: choice
+        options: [ LOW, MEDIUM, HIGH ]
+      clouds:
+        description: 'Cloud mode'
+        required: false
+        default: 'BOX'
+        type: choice
+        options: [ VANILLA, BOX, VOLUMETRIC ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download MaterialBinTool
+        run: |
+          curl -L -o mbt.zip \
+            "https://github.com/NogardRyuu/MaterialBinTool/releases/latest/download/MaterialBinTool-linux-x64.zip"
+          unzip mbt.zip -d mbt/
+          chmod +x mbt/MaterialBinTool
+
+      - name: Install cpp preprocessor
+        run: sudo apt-get install -y cpp
+
+      - name: Preprocess GLSL includes
+        run: |
+          mkdir -p shaders/glsl/preprocessed
+          for fsh in shaders/glsl/*.fsh; do
+            name=$(basename "$fsh" .fsh)
+            cpp -P -I shaders/glsl/include "$fsh" > "shaders/glsl/preprocessed/${name}.fsh"
+          done
+          for vsh in shaders/glsl/*.vsh; do
+            name=$(basename "$vsh" .vsh)
+            cpp -P -I shaders/glsl/include "$vsh" > "shaders/glsl/preprocessed/${name}.vsh"
+          done
+
+      - name: Patch config
+        run: |
+          python3 build.py \
+            --tier "${{ github.event.inputs.tier }}" \
+            --clouds "${{ github.event.inputs.clouds }}" \
+            --no-compile
+
+      - name: Compile shaders
+        run: |
+          MBT="./mbt/MaterialBinTool"
+          OUT="renderer/materials/compiled"
+          mkdir -p "$OUT"
+          PRE="shaders/glsl/preprocessed"
+          for name in renderchunk sky clouds stars sunmoon entity particle; do
+            echo "Compiling $name..."
+            "$MBT" compile \
+              --vertex   "$PRE/${name}.vsh" \
+              --fragment "$PRE/${name}.fsh" \
+              --output   "$OUT/${name}.material.bin"
+          done
+
+      - name: Package mcpack
+        run: |
+          python3 -c "
+          import zipfile
+          from pathlib import Path
+          root = Path('.')
+          skip = {'.git','__pycache__','.github','mbt','build'}
+          with zipfile.ZipFile('AuroraBRD.mcpack','w',zipfile.ZIP_DEFLATED) as zf:
+              for p in root.rglob('*'):
+                  if p.is_dir(): continue
+                  if set(p.parts) & skip: continue
+                  if p.name == 'build.py': continue
+                  zf.write(p)
+          print('Done')
+          "
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AuroraBRD-${{ github.event.inputs.tier }}-${{ github.event.inputs.clouds }}
+          path: AuroraBRD.mcpack
+          retention-days: 30
