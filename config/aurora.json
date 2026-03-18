@@ -1,0 +1,48 @@
+{
+  "_comment": "Aurora BRD Config — edit values then recompile shaders",
+
+  "performance_tier": "MEDIUM",
+  "_tier_options": ["LOW", "MEDIUM", "HIGH"],
+
+  "cloud_mode": "BOX",
+  "_cloud_options": ["VANILLA", "BOX", "VOLUMETRIC"],
+
+  "features": {
+    "shadows":           true,
+    "water_reflections": true,
+    "color_grading":     true,
+    "dynamic_lighting":  true,
+    "screen_space_ao":   false
+  },
+
+  "fog": {
+    "overworld_density": 0.10,
+    "nether_enabled":    false,
+    "end_color":         [0.18, 0.04, 0.28, 1.0],
+    "end_density":       0.55
+  },
+
+  "tiers": {
+    "LOW": {
+      "shadow_cascades":    0,
+      "shadow_pcf":         false,
+      "reflection_steps":   0,
+      "cloud_detail":       0,
+      "fog_quality":        "LINEAR"
+    },
+    "MEDIUM": {
+      "shadow_cascades":    1,
+      "shadow_pcf":         true,
+      "reflection_steps":   8,
+      "cloud_detail":       1,
+      "fog_quality":        "EXP"
+    },
+    "HIGH": {
+      "shadow_cascades":    2,
+      "shadow_pcf":         true,
+      "reflection_steps":   16,
+      "cloud_detail":       2,
+      "fog_quality":        "EXP2"
+    }
+  }
+}
